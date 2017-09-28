@@ -183,16 +183,17 @@ contract LeasingContract {
     {
         Transfer storage transfer = _transfers[id];
         transfer.contractId = id;
-        transfer.aspirant = aspirant;
 
         Contract storage contrakt = _contracts[id];
         Agreement storage agreement = _agreements[id];
 
-        if (msg.sender == contrakt.landlord) {
+        if (msg.sender == contrakt.landlord && (transfer.aspirant == 0x0 || transfer.aspirant == aspirant)) {
             transfer.landlord = true;
+            transfer.aspirant = aspirant;
             ShowedStatusMessage("El arrendador ha aceptado el acuerdo de transferencia");
-        } else if (msg.sender == agreement.leasee) {
+        } else if (msg.sender == agreement.leasee && (transfer.aspirant == 0x0 || transfer.aspirant == aspirant)) {
             transfer.leasee = true;
+            transfer.aspirant = aspirant;
             ShowedStatusMessage("El arrendatario ha aceptado el acuerdo de transferencia");
         }
         if (transfer.landlord && transfer.leasee) {
