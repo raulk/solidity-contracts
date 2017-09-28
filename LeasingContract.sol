@@ -28,7 +28,7 @@ contract LeasingContract {
 
     address _owner;
     uint _counter;
-    bool _paydayConstraintEnabled = true;
+    bool _paydayConstraintEnabled;
 
     mapping(uint => Contract) _contracts;
     mapping(uint => Agreement) _agreements;
@@ -41,10 +41,13 @@ contract LeasingContract {
     event DepositAdded(uint added, uint totalDeposit, address sender);
 
     event ShowedStatusMessage(string);
+    event ShowedStatusMessage(uint);
+    event ShowedStatusMessage(bool);
 
     function LeasingContract() public {
         _owner = msg.sender;
         _counter = 0;
+        _paydayConstraintEnabled = true;
     }
 
     modifier contractActive(uint id) {
@@ -68,11 +71,13 @@ contract LeasingContract {
     }
 
     modifier dayElapsed(uint id) {
-        require(!_paydayConstraintEnabled || _agreements[id].lastUpdate + 1 days >= now);
+        ShowedStatusMessage(_agreements[id].lastUpdate + 1 days);
+        require(!_paydayConstraintEnabled);
+        require(_agreements[id].lastUpdate + 1 days >= now);
         _;
     }
 
-    function() payable {}
+    function() public payable {}
 
     function createContract(uint fee, uint deposit, uint dayPenalty)
     public
@@ -122,17 +127,17 @@ contract LeasingContract {
     function agreeContract(uint id) public payable
         contactInactive(id)
     {
-        Contract contrakt = _contracts[id];
+        Contract storage contrakt = _contracts[id];
         uint required = contrakt.requiredDeposit + contrakt.pricePerDay;
 
-        if (weiToEther(msg.value) < required){
+        if (weiToEther(msg.value) < required) {
             CallFinishedWithResult(false);
             ShowedStatusMessage("No se ha podido confirmar el acuerdo por falta de fondos");
         }
         require(weiToEther(msg.value) >= required);
 
         _agreements[id] = Agreement(id, msg.sender, weiToEther(msg.value) - contrakt.pricePerDay, 0, now);
-        contrakt.landlord.transfer( etherToWei(contrakt.pricePerDay) );
+        contrakt.landlord.transfer(etherToWei(contrakt.pricePerDay));
         CallFinishedWithResult(true);
 
         ShowedStatusMessage("El arrendatario ha aceptado las condiciones del contrato");
@@ -150,13 +155,13 @@ contract LeasingContract {
     function payday(uint id) public payable
         dayElapsed(id)
     {
-        Contract contrakt = _contracts[id];
+        Contract storage contrakt = _contracts[id];
         Agreement storage agreement = _agreements[id];
 
         uint amount = contrakt.pricePerDay + (agreement.pending * contrakt.dayPenalty);
 
         if (agreement.deposit >= amount) {
-            contrakt.landlord.transfer( etherToWei(amount) );
+            contrakt.landlord.transfer(etherToWei(amount));
             agreement.deposit -= amount;
             agreement.pending = 0;
 
@@ -180,8 +185,8 @@ contract LeasingContract {
         transfer.contractId = id;
         transfer.aspirant = aspirant;
 
-        Contract contrakt = _contracts[id];
-        Agreement agreement = _agreements[id];
+        Contract storage contrakt = _contracts[id];
+        Agreement storage agreement = _agreements[id];
 
         if (msg.sender == contrakt.landlord) {
             transfer.landlord = true;
@@ -201,18 +206,18 @@ contract LeasingContract {
         contractActive(id)
         onlyAspirant(id)
     {
-        Contract contrakt = _contracts[id];
-        Agreement agreement = _agreements[id];
+        Contract storage contrakt = _contracts[id];
+        Agreement storage agreement = _agreements[id];
         Transfer storage transfer = _transfers[id];
 
         uint quota = contrakt.pricePerDay + (_agreements[id].pending * contrakt.dayPenalty);
 
-        require( weiToEther(msg.value) >= quota);
+        require(weiToEther(msg.value) >= quota);
 
         transfer.deposit = weiToEther(msg.value);
 
         if (transfer.landlord && transfer.leasee) {
-            agreement.leasee.transfer( etherToWei(agreement.deposit) );
+            agreement.leasee.transfer(etherToWei(agreement.deposit));
             agreement.leasee = transfer.aspirant;
             agreement.deposit = transfer.deposit;
             delete _transfers[id];
@@ -231,13 +236,13 @@ contract LeasingContract {
         ShowedStatusMessage("[DEBUG] Se han cambiado las condiciones del contrato");
     }
 
-    function weiToEther(uint weis) internal constant
+    function weiToEther(uint weis) internal pure
     returns(uint)
     {
         return weis / (10 ** 18);
     }
 
-    function etherToWei(uint ethers) internal constant
+    function etherToWei(uint ethers) internal pure
     returns(uint)
     {
         return ethers * (10 ** 18);
