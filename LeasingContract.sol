@@ -214,7 +214,8 @@ contract LeasingContract {
         uint quota = contrakt.pricePerDay + (_agreements[id].pending * contrakt.dayPenalty);
 
         require(weiToEther(msg.value) >= quota);
-
+        require(transfer.landlord && transfer.leasee);
+        
         transfer.deposit = weiToEther(msg.value);
 
         if (transfer.landlord && transfer.leasee) {
